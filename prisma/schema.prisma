@@ -19,10 +19,61 @@ model User {
   name  String?
   role  UserRole @default(RIDER)
 
+  password   String   // This will store the hashed password
+  isVerified Boolean  @default(false) // Tracks if email is verified
+
   createdAt DateTime @default(now())
+
+  vehicles Vehicle[] // A user can have multiple vehicles
+  rides    Ride[]    // A driver can post multiple rides
+  authVerification AuthVerification?
 }
 
 enum UserRole {
   RIDER
   DRIVER
+}
+
+model AuthVerification {
+  id        String   @id @default(cuid())
+  otp       String   // The 6-digit code
+  expiresAt DateTime
+
+  // This creates a 1-to-1 link to the User
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Vehicle {
+  id           String @id @default(cuid())
+  make         String // e.g., "Toyota"
+  model        String // e.g., "Camry"
+  licensePlate String @unique
+  color        String
+
+  // Relation to the User (Driver)
+  driverId String
+  driver   User   @relation(fields: [driverId], references: [id])
+
+  rides    Ride[]
+}
+
+model Ride {
+  id            String   @id @default(cuid())
+  departureTime DateTime
+  cost          Decimal
+  totalSeats    Int
+  
+  // We'll manage this later
+  // seatsAvailable  Int 
+
+  // Location Data (coming soon)
+  // srcDescription String
+  // ...
+
+  driverId String
+  driver   User   @relation(fields: [driverId], references: [id])
+  
+  vehicleId String   // The ride is associated with one specific vehicle
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
 }

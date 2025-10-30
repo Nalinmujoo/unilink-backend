@@ -1,6 +1,7 @@
 import express, { Express, Request, Response } from 'express';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import authRouter from './routes/auth';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -21,6 +22,9 @@ app.use(express.json());
 app.get('/', (req: Request, res: Response) => {
   res.send('Welcome to the Ride-Share API!');
 });
+
+// All routes in authRouter will be prefixed with /api/auth
+app.use('/api/auth', authRouter);
 
 // --- Server Startup ---
 async function main() {
