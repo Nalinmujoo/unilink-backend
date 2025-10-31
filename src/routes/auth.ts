@@ -3,6 +3,7 @@ import { prisma } from '../index';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { sendVerificationEmail } from '../utils/mailService'; // Import our mailer
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
@@ -16,6 +17,11 @@ const signupSchema = z.object({
     ),
   password: z.string().min(8, 'Password must be at least 8 characters long'),
   name: z.string().min(2, 'Name must be at least 2 characters long'),
+});
+
+const verifySchema = z.object({
+  email: z.email({ message: 'Invalid email address' }),
+  otp: z.string().length(6, 'OTP must be 6 digits'),
 });
 
 // --- Helper: Generate 6-digit OTP ---
@@ -100,5 +106,88 @@ router.post('/signup', async (req, res) => {
 });
 
 // We will add /verify and /login here next
+/**
+ * POST /api/auth/verify
+ * Verifies a user's email with an OTP.
+ */
+router.post('/verify', async (req, res) => {
+  try {
+    // 1. Validate the request body
+    const result = verifySchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+    const { email, otp } = result.data;
+    const lowerEmail = email.toLowerCase();
+
+    // 2. Find the unverified user
+    const user = await prisma.user.findUnique({
+      where: { email: lowerEmail },
+      include: { authVerification: true }, // Also get their verification data
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (user.isVerified) {
+      return res.status(400).json({ error: 'User is already verified' });
+    }
+    if (!user.authVerification) {
+      return res.status(400).json({ error: 'No OTP found for this user' });
+    }
+
+    // 3. Check if OTP is correct and not expired
+    const isMatch = user.authVerification.otp === otp;
+    const isExpired = new Date() > user.authVerification.expiresAt;
+
+    if (isExpired) {
+      return res.status(400).json({ error: 'OTP has expired' });
+    }
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Invalid OTP' });
+    }
+
+    // 4. Success! Update the user and delete the OTP
+    // We do this in a transaction so if one fails, both fail.
+    const [, updatedUser] = await prisma.$transaction([
+      // Delete the OTP first
+      prisma.authVerification.delete({
+        where: { id: user.authVerification.id },
+      }),
+      // Then update the user
+      prisma.user.update({
+        where: { id: user.id },
+        data: { isVerified: true },
+      }),
+    ]);
+
+    // 5. Create a JWT token for the new user
+    const token = jwt.sign(
+      {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        role: updatedUser.role,
+      },
+      process.env.JWT_SECRET!,
+      {
+        expiresIn: '7d',
+      }
+    );
+
+    // 6. Send back the token and user data
+    res.status(200).json({
+      token,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        role: updatedUser.role,
+      },
+    });
+  } catch (error) {
+    console.error('Error during verification:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 export default router;
