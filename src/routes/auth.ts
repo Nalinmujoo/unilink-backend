@@ -24,6 +24,11 @@ const verifySchema = z.object({
   otp: z.string().length(6, 'OTP must be 6 digits'),
 });
 
+const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required'), // Just check it's not empty
+});
+
 // --- Helper: Generate 6-digit OTP ---
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -186,6 +191,74 @@ router.post('/verify', async (req, res) => {
     });
   } catch (error) {
     console.error('Error during verification:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/login
+ * Handles login for existing, verified users.
+ */
+router.post('/login', async (req, res) => {
+  try {
+    // 1. Validate the request body
+    const result = loginSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+    const { email, password } = result.data;
+    const lowerEmail = email.toLowerCase();
+
+    // 2. Find the user by email
+    const user = await prisma.user.findUnique({
+      where: { email: lowerEmail },
+    });
+
+    // 3. Check if user exists
+    // We use a generic error for security (don't tell them if email or pass was wrong)
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // 4. Check if their email is verified
+    if (!user.isVerified) {
+      // This is a special case, so it's okay to be specific
+      return res.status(403).json({
+        error: 'Please verify your email before logging in. (Check for OTP)',
+      });
+    }
+
+    // 5. Check if password matches
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // 6. Success! Create a JWT token
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      process.env.JWT_SECRET!,
+      {
+        expiresIn: '7d',
+      }
+    );
+
+    // 7. Send back the token and user data
+    res.status(200).json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error('Error during login:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
