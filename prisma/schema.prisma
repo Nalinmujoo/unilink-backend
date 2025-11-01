@@ -29,6 +29,7 @@ model User {
 
   vehicles Vehicle[] // A user can have multiple vehicles
   rides    Ride[]    // A driver can post multiple rides
+  rideRequests RideRequest[] // A user can post multiple requests
   authVerification AuthVerification?
 }
 
@@ -59,6 +60,33 @@ model Vehicle {
   driver   User   @relation(fields: [driverId], references: [id])
 
   rides    Ride[]
+}
+
+model RideRequest {
+  id                     String    @id @default(cuid())
+  desiredDepartureTime   DateTime
+  canPayAmount           Decimal
+  passengerCount         Int
+  status                 RequestStatus @default(PENDING)
+  createdAt              DateTime  @default(now())
+
+  // Location Data
+  srcDescription String
+  srcLat         Float
+  srcLng         Float
+  dstDescription String
+  dstLat         Float
+  dstLng         Float
+  
+  // Relation to the rider
+  riderId String
+  rider   User   @relation(fields: [riderId], references: [id])
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  CANCELLED
 }
 
 model Ride {

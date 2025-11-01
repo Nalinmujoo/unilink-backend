@@ -5,6 +5,7 @@ import authRouter from './routes/auth';
 import profileRouter from './routes/profile';
 import vehiclesRouter from './routes/vehicles';
 import ridesRouter from './routes/rides';
+import requestsRouter from './routes/requests';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -31,6 +32,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/profile', profileRouter);
 app.use('/api/vehicles', vehiclesRouter);
 app.use('/api/rides', ridesRouter);
+app.use('/api/requests', requestsRouter);
 
 // --- Server Startup ---
 async function main() {
