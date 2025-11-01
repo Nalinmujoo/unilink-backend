@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import authRouter from './routes/auth';
 import profileRouter from './routes/profile';
+import vehiclesRouter from './routes/vehicles';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -27,6 +28,7 @@ app.get('/', (req: Request, res: Response) => {
 // All routes in authRouter will be prefixed with /api/auth
 app.use('/api/auth', authRouter);
 app.use('/api/profile', profileRouter);
+app.use('/api/vehicles', vehiclesRouter);
 
 // --- Server Startup ---
 async function main() {
