@@ -22,6 +22,9 @@ model User {
   password   String   // This will store the hashed password
   isVerified Boolean  @default(false) // Tracks if email is verified
 
+  driverRating Float? @default(5.0)
+  riderRating  Float? @default(5.0)
+
   createdAt DateTime @default(now())
 
   vehicles Vehicle[] // A user can have multiple vehicles

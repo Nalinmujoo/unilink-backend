@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "driverRating" DOUBLE PRECISION DEFAULT 5.0,
+ADD COLUMN     "riderRating" DOUBLE PRECISION DEFAULT 5.0;
