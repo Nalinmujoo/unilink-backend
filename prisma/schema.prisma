@@ -64,16 +64,27 @@ model Ride {
   cost          Decimal
   totalSeats    Int
   
-  // We'll manage this later
-  // seatsAvailable  Int 
+  seatsAvailable  Int
+  status          RideStatus @default(SCHEDULED) 
 
-  // Location Data (coming soon)
-  // srcDescription String
-  // ...
+  // Location Data
+  srcDescription String
+  srcLat         Float
+  srcLng         Float
+  dstDescription String
+  dstLat         Float
+  dstLng         Float
 
   driverId String
   driver   User   @relation(fields: [driverId], references: [id])
   
   vehicleId String   // The ride is associated with one specific vehicle
   vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+}
+
+enum RideStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }

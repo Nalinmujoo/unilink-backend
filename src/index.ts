@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import authRouter from './routes/auth';
 import profileRouter from './routes/profile';
 import vehiclesRouter from './routes/vehicles';
+import ridesRouter from './routes/rides';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -29,6 +30,7 @@ app.get('/', (req: Request, res: Response) => {
 app.use('/api/auth', authRouter);
 app.use('/api/profile', profileRouter);
 app.use('/api/vehicles', vehiclesRouter);
+app.use('/api/rides', ridesRouter);
 
 // --- Server Startup ---
 async function main() {
