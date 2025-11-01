@@ -201,4 +201,5 @@ router.get('/search', authMiddleware, async (req: AuthRequest, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 export default router;
