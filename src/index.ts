@@ -1,6 +1,9 @@
 import express, { Express, Request, Response } from 'express';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { initSocket } from './socket';
 import authRouter from './routes/auth';
 import profileRouter from './routes/profile';
 import vehiclesRouter from './routes/vehicles';
@@ -38,12 +41,26 @@ app.use('/api/requests', requestsRouter);
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/chats', chatsRouter);
 
+// Socket.IO setup
+// 1. Create the HTTP server
+const httpServer = createServer(app);
+
+// 2. Initialize the Socket.IO server
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*', // Allow all origins for simplicity
+    // In prod restrict this to the app/website URL
+  },
+});
+
+// 3. Pass the 'io' server to our socket logic file
+initSocket(io);
+
 // --- Server Startup ---
 async function main() {
-  // You can add any async startup logic here
-  // (e.g., connecting to other services)
-
-  app.listen(port, () => {
+  // We now listen on the httpServer because Socket.IO needs to attach to a
+  // standard Node.js http server, not directly to an Express app
+  httpServer.listen(port, () => {
     console.log(`[server]: Server is running at http://localhost:${port}`);
   });
 }
