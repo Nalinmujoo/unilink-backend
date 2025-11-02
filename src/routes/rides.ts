@@ -202,4 +202,65 @@ router.get('/search', authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
+const bookRideSchema = z.object({
+  seatsBooked: z.number().int().min(1, 'Must book at least 1 seat'),
+});
+
+/**
+ * POST /api/rides/:rideId/book
+ * A rider requests to book a seat on a specific ride.
+ *
+ */
+router.post('/:rideId/book', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    // 1. Get Rider ID from token and Ride ID from URL
+    const riderId = req.user!.id;
+    const { rideId } = req.params;
+
+    // 2. Validate the request body
+    const result = bookRideSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+    const { seatsBooked } = result.data;
+
+    // 3. Find the ride they want to book
+    const ride = await prisma.ride.findUnique({
+      where: { id: rideId, status: 'SCHEDULED' },
+    });
+
+    if (!ride) {
+      return res.status(404).json({ error: 'Ride not found or is no longer available' });
+    }
+
+    // 4. Check business logic
+    if (ride.driverId === riderId) {
+      return res.status(400).json({ error: 'You cannot book your own ride' });
+    }
+    if (ride.seatsAvailable < seatsBooked) {
+      return res.status(400).json({ error: 'Not enough seats available' });
+    }
+
+    // 5. Create the PENDING booking
+    const newBooking = await prisma.booking.create({
+      data: {
+        seatsBooked,
+        status: 'PENDING',
+        rideId: ride.id,
+        riderId: riderId,
+        driverId: ride.driverId, // Store driverId for easy access
+      },
+    });
+
+    // 6. Respond with the pending booking
+    // In the future, we would send a notification to the driver here.
+    res.status(201).json(newBooking);
+
+  } catch (error) {
+    // Handle potential error if user has already booked this ride (not yet implemented, but good to think about)
+    console.error('Error booking ride:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

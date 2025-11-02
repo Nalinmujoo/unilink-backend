@@ -31,6 +31,11 @@ model User {
   rides    Ride[]    // A driver can post multiple rides
   rideRequests RideRequest[] // A user can post multiple requests
   authVerification AuthVerification?
+
+  bookings         Booking[]     @relation("RiderBookings")
+  acceptedBookings Booking[]     @relation("DriverBookings")
+  chats            Chat[]        @relation("ChatParticipants")
+  sentMessages     Message[]     @relation("MessageSender")
 }
 
 enum UserRole {
@@ -81,6 +86,8 @@ model RideRequest {
   // Relation to the rider
   riderId String
   rider   User   @relation(fields: [riderId], references: [id])
+
+  booking Booking? @relation("RequestBooking")
 }
 
 enum RequestStatus {
@@ -111,6 +118,8 @@ model Ride {
   
   vehicleId String   // The ride is associated with one specific vehicle
   vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+
+  bookings Booking[]
 }
 
 enum RideStatus {
@@ -118,4 +127,64 @@ enum RideStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  seatsBooked Int
+  status      BookingStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+  
+  // Relation to the Ride
+  rideId String
+  ride   Ride   @relation(fields: [rideId], references: [id])
+  
+  // Relation to the Rider
+  riderId String
+  rider   User   @relation("RiderBookings", fields: [riderId], references: [id], onDelete: NoAction)
+  
+  // Relation to the Driver (denormalized for easy queries)
+  driverId String
+  driver   User   @relation("DriverBookings", fields: [driverId], references: [id], onDelete: NoAction)
+
+  // This is for when a request is accepted (Scenario B)
+  rideRequestId String?  @unique
+  rideRequest   RideRequest? @relation("RequestBooking", fields: [rideRequestId], references: [id])
+
+  // A booking, once confirmed, will have one chat
+  chat Chat?
+}
+
+model Chat {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // 1-to-1 relation with a Booking
+  bookingId String  @unique
+  booking   Booking @relation(fields: [bookingId], references: [id])
+  
+  // Many-to-Many relation with Users
+  participants User[]      @relation("ChatParticipants")
+  messages     Message[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  text      String   
+  createdAt DateTime @default(now())
+
+  // Relation to the Chat.tsx
+  chatId String
+  chat   Chat   @relation(fields: [chatId], references: [id])
+  
+  // Relation to the User who sent it
+  senderId String
+  sender   User   @relation("MessageSender", fields: [senderId], references: [id])
+}
+
+enum BookingStatus {
+  PENDING    // Rider requested to book
+  CONFIRMED  // Driver accepted
+  REJECTED   // Driver rejected
+  CANCELLED  // Rider or Driver cancelled
 }
