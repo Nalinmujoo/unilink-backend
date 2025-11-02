@@ -158,6 +158,7 @@ model Booking {
 model Chat {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt // Automatically updates on change
 
   // 1-to-1 relation with a Booking
   bookingId String  @unique
