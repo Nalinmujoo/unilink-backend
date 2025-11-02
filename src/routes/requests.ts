@@ -174,4 +174,135 @@ router.get('/search', authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
+const acceptRequestSchema = z.object({
+  vehicleId: z.string().cuid('You must select a valid vehicle'),
+});
+
+/**
+ * POST /api/requests/:requestId/accept
+ * A driver accepts a pending ride request.
+ * This is a transactional operation:
+ * 1. Updates RideRequest status to ACCEPTED.
+ * 2. Creates a new Ride based on the request.
+ * 3. Creates a new CONFIRMED Booking.
+ * 4. Creates a new Chat.
+ *
+ */
+router.post(
+  '/:requestId/accept',
+  authMiddleware,
+  async (req: AuthRequest, res) => {
+    try {
+      // 1. Get Driver ID, Request ID
+      const driverId = req.user!.id;
+      const { requestId } = req.params;
+
+      // 2. Ensure user is a DRIVER
+      if (req.user?.role !== 'DRIVER') {
+        return res
+          .status(403)
+          .json({ error: 'You must be a driver to accept a request' });
+      }
+
+      // 3. Validate the body (vehicleId)
+      const result = acceptRequestSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: result.error.issues[0].message });
+      }
+      const { vehicleId } = result.data;
+
+      // 4. Verify the selected vehicle belongs to this driver
+      const vehicle = await prisma.vehicle.findUnique({
+        where: { id: vehicleId, driverId: driverId },
+      });
+      if (!vehicle) {
+        return res
+          .status(404)
+          .json({ error: 'Vehicle not found or it is not yours' });
+      }
+
+      // 5. Use a transaction to accept the request
+      const [updatedRequest, newRide, newBooking, newChat] =
+        await prisma.$transaction(async (tx) => {
+          // Step 1: Find and update the original request
+          const rideRequest = await tx.rideRequest.update({
+            where: {
+              id: requestId,
+              status: 'PENDING', // Only accept pending requests
+            },
+            data: {
+              status: 'ACCEPTED',
+            },
+          });
+
+          // Step 2: Create a new Ride based on the request's details
+          const newRide = await tx.ride.create({
+            data: {
+              // Copy details from the request
+              srcDescription: rideRequest.srcDescription,
+              srcLat: rideRequest.srcLat,
+              srcLng: rideRequest.srcLng,
+              dstDescription: rideRequest.dstDescription,
+              dstLat: rideRequest.dstLat,
+              dstLng: rideRequest.dstLng,
+              departureTime: rideRequest.desiredDepartureTime,
+              cost: rideRequest.canPayAmount,
+              totalSeats: rideRequest.passengerCount,
+              seatsAvailable: 0, // The ride is full by this one booking
+              status: 'SCHEDULED',
+
+              // Assign the driver and their vehicle
+              driverId: driverId,
+              vehicleId: vehicleId,
+            },
+          });
+
+          // Step 3: Create a CONFIRMED booking
+          const newBooking = await tx.booking.create({
+            data: {
+              status: 'CONFIRMED',
+              seatsBooked: rideRequest.passengerCount,
+              rideId: newRide.id,
+              riderId: rideRequest.riderId,
+              driverId: driverId,
+              rideRequestId: rideRequest.id, // Link to the original request
+            },
+          });
+
+          // Step 4: Create the Chat
+          const newChat = await tx.chat.create({
+            data: {
+              bookingId: newBooking.id,
+              participants: {
+                connect: [
+                  { id: driverId }, // Connect the driver
+                  { id: rideRequest.riderId }, // Connect the rider
+                ],
+              },
+            },
+          });
+
+          return [rideRequest, newRide, newBooking, newChat];
+        });
+
+      // 6. Respond with the new booking
+      res.status(201).json(newBooking);
+    } catch (error) {
+      // Handle case where request was already accepted (P2025)
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        return res
+          .status(404)
+          .json({
+            error: 'Ride request not found or has already been accepted',
+          });
+      }
+      console.error('Error accepting request:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
 export default router;
