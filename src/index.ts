@@ -4,6 +4,8 @@ import { PrismaClient } from '@prisma/client';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { initSocket } from './socket';
+import path from 'path';
+
 import authRouter from './routes/auth';
 import profileRouter from './routes/profile';
 import vehiclesRouter from './routes/vehicles';
@@ -31,6 +33,8 @@ app.use(express.json());
 app.get('/', (req: Request, res: Response) => {
   res.send('Welcome to the Ride-Share API!');
 });
+
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // All routes in authRouter will be prefixed with /api/auth
 app.use('/api/auth', authRouter);

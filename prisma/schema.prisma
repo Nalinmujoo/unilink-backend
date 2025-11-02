@@ -25,6 +25,8 @@ model User {
   driverRating Float? @default(5.0)
   riderRating  Float? @default(5.0)
 
+  profileImageUrl String? // URL to the profile image
+  
   createdAt DateTime @default(now())
 
   vehicles Vehicle[] // A user can have multiple vehicles
