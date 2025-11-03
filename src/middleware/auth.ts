@@ -50,6 +50,7 @@ export const authMiddleware = async (
         name: true,
         role: true,
         isVerified: true,
+        profileImageUrl: true,
       },
     });
 

@@ -187,6 +187,7 @@ router.post('/verify', async (req, res) => {
         email: updatedUser.email,
         name: updatedUser.name,
         role: updatedUser.role,
+        profileImageUrl: updatedUser.profileImageUrl,
       },
     });
   } catch (error) {
@@ -255,6 +256,7 @@ router.post('/login', async (req, res) => {
         email: user.email,
         name: user.name,
         role: user.role,
+        profileImageUrl: user.profileImageUrl,
       },
     });
   } catch (error) {
